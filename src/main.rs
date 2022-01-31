@@ -1,8 +1,5 @@
+use bevy::{core::FixedTimestep, prelude::*};
 use rand::prelude::*;
-use bevy::{
-    prelude::*,
-    core::FixedTimestep,
-};
 
 const MOVE_STEP: f64 = 1.0 / 5.0;
 const TIME_STEP: f32 = 1.0 / 60.0;
@@ -68,10 +65,7 @@ struct Position {
 
 impl Position {
     fn new(x: i32, y: i32) -> Self {
-        Self {
-            x,
-            y,
-        }
+        Self { x, y }
     }
 
     fn in_bounds(&self, size: Size<i32>) -> bool {
@@ -95,7 +89,7 @@ impl Position {
 }
 
 #[derive(Component, Copy, Clone)]
-struct Size<T: Copy>{
+struct Size<T: Copy> {
     width: T,
     height: T,
 }
@@ -119,7 +113,7 @@ struct HeadColor(Color);
 struct TailColor(Color);
 
 #[derive(Copy, Clone)]
-struct Grid{
+struct Grid {
     cell_size: f32,
     size: Size<i32>,
 }
@@ -142,24 +136,21 @@ fn main() {
         .add_startup_stage("adding_head", SystemStage::single(add_snake_system))
         .add_system_set(
             SystemSet::new()
-            .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
-            .with_system(change_direction_system)
+                .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
+                .with_system(change_direction_system),
         )
         .add_system_set(
             SystemSet::new()
-            .with_run_criteria(FixedTimestep::step(MOVE_STEP))
-            .with_system(move_snake_system)
-            .with_system(collide_snake_system)
-            .with_system(eat_fruit_system)
-            .with_system(pos_trans_size_scale_system)
+                .with_run_criteria(FixedTimestep::step(MOVE_STEP))
+                .with_system(move_snake_system)
+                .with_system(collide_snake_system)
+                .with_system(eat_fruit_system)
+                .with_system(pos_trans_size_scale_system),
         )
         .run();
 }
 
-fn startup(
-    mut commands: Commands,
-    windows: Res<Windows>
-) {
+fn startup(mut commands: Commands, windows: Res<Windows>) {
     // camera
     commands.spawn_bundle(OrthographicCameraBundle::new_2d());
     //
@@ -167,10 +158,7 @@ fn startup(
     let width = window.width();
     let height = window.height();
     // resources
-    commands.insert_resource(WindowSize {
-        width,
-        height,
-    });
+    commands.insert_resource(WindowSize { width, height });
     commands.insert_resource(ScoreBoard(0));
     let cell_size = width.min(height) / 20.0;
     commands.insert_resource(Grid {
@@ -186,53 +174,53 @@ fn startup(
     commands.insert_resource(Tail::default());
 }
 
-fn spawn_tail_segment(mut commands: Commands, position: Position, tail_color: Color, size: Size<f32>) -> Entity {
-    commands.spawn_bundle(SpriteBundle {
-        sprite: Sprite {
-            color: tail_color,
+fn spawn_tail_segment(
+    mut commands: Commands,
+    position: Position,
+    tail_color: Color,
+    size: Size<f32>,
+) -> Entity {
+    commands
+        .spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                color: tail_color,
+                ..Default::default()
+            },
             ..Default::default()
-        },
-        ..Default::default()
-    })
-    .insert(Tail)
-    .insert(position)
-    .insert(size)
-    .id()
+        })
+        .insert(Tail)
+        .insert(position)
+        .insert(size)
+        .id()
 }
 
-fn add_fruit_system(
-    mut commands: Commands,
-    grid: Res<Grid>,
-    fruit_color: Res<FruitColor>,
- ){
-    commands.spawn_bundle(SpriteBundle {
-        sprite: Sprite {
-            color: fruit_color.0,
+fn add_fruit_system(mut commands: Commands, grid: Res<Grid>, fruit_color: Res<FruitColor>) {
+    commands
+        .spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                color: fruit_color.0,
+                ..Default::default()
+            },
             ..Default::default()
-        },
-        ..Default::default()
-    })
-    .insert(Fruit)
-    .insert(Position::random(grid.size))
-    .insert(Size::square(grid.cell_size));
+        })
+        .insert(Fruit)
+        .insert(Position::random(grid.size))
+        .insert(Size::square(grid.cell_size));
 }
 
-fn add_snake_system(
-    mut commands: Commands,
-    grid: Res<Grid>,
-    head_color: Res<HeadColor>,
-) {
-    commands.spawn_bundle(SpriteBundle {
-        sprite: Sprite {
-            color: head_color.0,
+fn add_snake_system(mut commands: Commands, grid: Res<Grid>, head_color: Res<HeadColor>) {
+    commands
+        .spawn_bundle(SpriteBundle {
+            sprite: Sprite {
+                color: head_color.0,
+                ..Default::default()
+            },
             ..Default::default()
-        },
-        ..Default::default()
-    })
-    .insert(Head::default())
-    .insert(Facing::Up)
-    .insert(Position::center(grid.size))
-    .insert(Size::square(grid.cell_size));
+        })
+        .insert(Head::default())
+        .insert(Facing::Up)
+        .insert(Position::center(grid.size))
+        .insert(Size::square(grid.cell_size));
 }
 
 fn pos_trans_size_scale_system(
@@ -240,17 +228,9 @@ fn pos_trans_size_scale_system(
     mut query: Query<(&Position, &Size<f32>, &mut Transform)>,
 ) {
     for (pos, size, mut transform) in query.iter_mut() {
-        transform.scale = Vec3::new(
-            size.width,
-            size.height,
-            1.0,
-            );
+        transform.scale = Vec3::new(size.width, size.height, 1.0);
         let pos = grid_to_real(*pos, *size, window_size.clone());
-        transform.translation = Vec3::new(
-            pos.x,
-            pos.y,
-            0.0,
-        );
+        transform.translation = Vec3::new(pos.x, pos.y, 0.0);
     }
 }
 
@@ -284,7 +264,8 @@ fn move_snake_system(
         Facing::Down => head_pos.y += 1,
         Facing::Right => head_pos.x += 1,
     }
-    tail_positions.iter()
+    tail_positions
+        .iter()
         .zip(head.0.iter().skip(1))
         .for_each(|(pos, tail_seg)| {
             println!("{} {}   {:?}", pos.x, pos.y, tail_seg);
@@ -292,10 +273,7 @@ fn move_snake_system(
         });
 }
 
-fn collide_snake_system(
-    grid: Res<Grid>,
-    mut query: Query<&mut Position, With<Head>>,
-) {
+fn collide_snake_system(grid: Res<Grid>, mut query: Query<&mut Position, With<Head>>) {
     let pos = query.single_mut();
     if !pos.in_bounds(grid.size) {
         panic!("DEAD!");
@@ -315,6 +293,11 @@ fn eat_fruit_system(
     if *fruit == *head_pos {
         *fruit = Position::random(grid.size);
         scoreboard.0 += 1;
-        head.0.push(spawn_tail_segment(commands, *head_pos, tail_color.0, Size::square(grid.cell_size)));
+        head.0.push(spawn_tail_segment(
+            commands,
+            *head_pos,
+            tail_color.0,
+            Size::square(grid.cell_size),
+        ));
     }
 }

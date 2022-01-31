@@ -15,6 +15,12 @@ enum Facing {
     Right,
 }
 
+impl Default for Facing {
+    fn default() -> Self {
+        Facing::Up
+    }
+}
+
 impl Facing {
     fn opposite(self) -> Self {
         use Facing::*;
@@ -48,15 +54,11 @@ struct ScoreBoard(u32);
 #[derive(Component, Copy, Clone)]
 struct Fruit;
 
-#[derive(Component, Copy, Clone)]
-struct Head;
+#[derive(Component, Clone, Default)]
+struct Head(Vec<Entity>);
 
-#[derive(Clone, Default)]
-struct Tail(Vec<Entity>);
-
-#[derive(Component, Copy, Clone)]
-struct TailSegment;
-
+#[derive(Component, Clone, Default)]
+struct Tail;
 
 #[derive(Component, Copy, Clone, PartialEq)]
 struct Position {
@@ -192,7 +194,7 @@ fn spawn_tail_segment(mut commands: Commands, position: Position, tail_color: Co
         },
         ..Default::default()
     })
-    .insert(TailSegment)
+    .insert(Tail)
     .insert(position)
     .insert(size)
     .id()
@@ -227,7 +229,7 @@ fn add_snake_system(
         },
         ..Default::default()
     })
-    .insert(Head)
+    .insert(Head::default())
     .insert(Facing::Up)
     .insert(Position::center(grid.size))
     .insert(Size::square(grid.cell_size));
@@ -265,15 +267,29 @@ fn change_direction_system(
 }
 
 fn move_snake_system(
-    mut query: Query<(&mut Position, &Facing), With<Head>>,
+    facing: Query<&Facing, With<Head>>,
+    mut head: Query<(Entity, &Head)>,
+    mut positions: Query<&mut Position>,
 ) {
-    let (mut head_pos, facing) = query.single_mut();
-    match facing {
+    let (entity, head) = head.single_mut();
+    let tail_positions = head
+        .0
+        .iter()
+        .map(|e| *positions.get_mut(*e).unwrap())
+        .collect::<Vec<Position>>();
+    let mut head_pos = positions.get_mut(entity).unwrap();
+    match *facing.single() {
         Facing::Up => head_pos.y -= 1,
         Facing::Left => head_pos.x -= 1,
         Facing::Down => head_pos.y += 1,
         Facing::Right => head_pos.x += 1,
     }
+    tail_positions.iter()
+        .zip(head.0.iter().skip(1))
+        .for_each(|(pos, tail_seg)| {
+            println!("{} {}   {:?}", pos.x, pos.y, tail_seg);
+            *positions.get_mut(*tail_seg).unwrap() = *pos;
+        });
 }
 
 fn collide_snake_system(
@@ -292,13 +308,13 @@ fn eat_fruit_system(
     commands: Commands,
     mut scoreboard: ResMut<ScoreBoard>,
     mut fruit: Query<&mut Position, (With<Fruit>, Without<Head>)>,
-    head: Query<&Position, (With<Head>, Without<Fruit>)>,
+    mut head: Query<(&Position, &mut Head), (With<Head>, Without<Fruit>)>,
 ) {
     let mut fruit = fruit.single_mut();
-    let head = head.single();
-    if *fruit == *head {
+    let (head_pos, mut head) = head.single_mut();
+    if *fruit == *head_pos {
         *fruit = Position::random(grid.size);
         scoreboard.0 += 1;
-        spawn_tail_segment(commands, *head, tail_color.0, Size::square(grid.cell_size));
+        head.0.push(spawn_tail_segment(commands, *head_pos, tail_color.0, Size::square(grid.cell_size)));
     }
 }

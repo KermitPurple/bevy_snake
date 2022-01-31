@@ -51,6 +51,13 @@ struct Fruit;
 #[derive(Component, Copy, Clone)]
 struct Head;
 
+#[derive(Clone, Default)]
+struct Tail(Vec<Entity>);
+
+#[derive(Component, Copy, Clone)]
+struct TailSegment;
+
+
 #[derive(Component, Copy, Clone, PartialEq)]
 struct Position {
     x: i32,
@@ -58,6 +65,13 @@ struct Position {
 }
 
 impl Position {
+    fn new(x: i32, y: i32) -> Self {
+        Self {
+            x,
+            y,
+        }
+    }
+
     fn in_bounds(&self, size: Size<i32>) -> bool {
         self.x >= 0 && self.y >= 0 && self.x < size.width && self.y < size.height
     }
@@ -165,8 +179,23 @@ fn startup(
         },
     });
     commands.insert_resource(FruitColor(Color::rgb(1.0, 0.0, 0.0)));
-    commands.insert_resource(HeadColor(Color::rgb(0.2, 1.0, 0.0)));
+    commands.insert_resource(HeadColor(Color::rgb(0.0, 1.0, 0.5)));
     commands.insert_resource(TailColor(Color::rgb(0.0, 1.0, 0.0)));
+    commands.insert_resource(Tail::default());
+}
+
+fn spawn_tail_segment(mut commands: Commands, position: Position, tail_color: Color, size: Size<f32>) -> Entity {
+    commands.spawn_bundle(SpriteBundle {
+        sprite: Sprite {
+            color: tail_color,
+            ..Default::default()
+        },
+        ..Default::default()
+    })
+    .insert(TailSegment)
+    .insert(position)
+    .insert(size)
+    .id()
 }
 
 fn add_fruit_system(
@@ -190,7 +219,6 @@ fn add_snake_system(
     mut commands: Commands,
     grid: Res<Grid>,
     head_color: Res<HeadColor>,
-    tail_color: Res<TailColor>,
 ) {
     commands.spawn_bundle(SpriteBundle {
         sprite: Sprite {
@@ -260,6 +288,8 @@ fn collide_snake_system(
 
 fn eat_fruit_system(
     grid: Res<Grid>,
+    tail_color: Res<TailColor>,
+    commands: Commands,
     mut scoreboard: ResMut<ScoreBoard>,
     mut fruit: Query<&mut Position, (With<Fruit>, Without<Head>)>,
     head: Query<&Position, (With<Head>, Without<Fruit>)>,
@@ -269,5 +299,6 @@ fn eat_fruit_system(
     if *fruit == *head {
         *fruit = Position::random(grid.size);
         scoreboard.0 += 1;
+        spawn_tail_segment(commands, *head, tail_color.0, Size::square(grid.cell_size));
     }
 }
